@@ -19,6 +19,7 @@ async function createUser(email) {
   const newUser = {
     email,
     apiKey,
+    monthlyQuota: 500,
     createdAt: new Date(),
   };
 

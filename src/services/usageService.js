@@ -46,6 +46,20 @@ async function getUsageSummary(apiKey) {
   return { totalRequests, totalTokens, totalCost, logs };
 }
 
-module.exports = { logUsage, estimateTokens, calculateCost, getUsageSummary };
+async function getMonthlyRequestCount(apiKey) {
+  const db = getDB();
+  const usageLogs = db.collection('usageLogs');
 
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
+  const count = await usageLogs.countDocuments({
+    apiKey,
+    timestamp: { $gte: startOfMonth },
+  });
+
+  return count;
+}
+
+module.exports = { logUsage, estimateTokens, calculateCost, getUsageSummary, getMonthlyRequestCount };
