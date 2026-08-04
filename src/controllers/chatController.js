@@ -1,6 +1,18 @@
 const { callGroq } = require('../services/groqService');
+const { callOpenRouter } = require('../services/openrouterService');
 const { logUsage } = require('../services/usageService');
 const { findCachedResponse, saveToCache } = require('../services/cacheService');
+
+async function getAIResponse(prompt) {
+  try {
+    const response = await callGroq(prompt);
+    return { response, provider: 'groq' };
+  } catch (error) {
+    console.error('Groq failed, falling back to OpenRouter:', error.message);
+    const response = await callOpenRouter(prompt);
+    return { response, provider: 'openrouter' };
+  }
+}
 
 async function handleChat(req, res, next) {
   try {
@@ -18,12 +30,12 @@ async function handleChat(req, res, next) {
       return res.json({ response: cached.response, cached: true, similarity: cached.similarity });
     }
 
-    const responseText = await callGroq(prompt);
+    const { response: responseText, provider } = await getAIResponse(prompt);
 
     await logUsage({ apiKey, prompt, response: responseText });
     await saveToCache(prompt, responseText);
 
-    res.json({ response: responseText, cached: false });
+    res.json({ response: responseText, cached: false, provider });
   } catch (error) {
     next(error);
   }
