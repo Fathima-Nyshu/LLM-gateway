@@ -5,6 +5,8 @@ const userRoutes = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { connectDB } = require('./config/db');
 const { connectRedis } = require('./config/redis');
+const usageRoutes = require('./routes/usageRoutes');
+
 
 dotenv.config();
 
@@ -19,6 +21,7 @@ app.get('/health', (req, res) => {
 
 app.use('/v1', userRoutes);
 app.use('/v1', chatRoutes);
+app.use('/v1', usageRoutes);
 
 app.use(errorHandler);
 

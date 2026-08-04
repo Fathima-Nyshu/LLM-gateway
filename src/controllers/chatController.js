@@ -1,4 +1,5 @@
 const { callGroq } = require('../services/groqService');
+const { logUsage } = require('../services/usageService');
 
 async function handleChat(req, res, next) {
   try {
@@ -9,6 +10,9 @@ async function handleChat(req, res, next) {
     }
 
     const responseText = await callGroq(prompt);
+
+    const apiKey = req.headers['x-api-key'];
+    await logUsage({ apiKey, prompt, response: responseText });
 
     res.json({ response: responseText });
   } catch (error) {
