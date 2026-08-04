@@ -1,123 +1,61 @@
 # LLM Gateway
 
-A production-style API gateway for LLM providers — handling authentication, rate limiting, cost tracking, quota management, response caching, and automatic provider failover.
+A gateway that sits between your applications and LLM providers — handling authentication, rate limiting, cost tracking, and automatic failover, so no single app has to deal with API keys, quotas, or provider outages directly.
 
-Built to solve a real problem: when multiple applications call LLM APIs directly, there's no central control over cost, no protection against runaway usage, and no fallback when a provider goes down. This gateway sits between client applications and LLM providers (Groq, OpenRouter) to solve exactly that.
+Live app: https://llm-gateway-weld.vercel.app
+Backend repo: same repo, backend lives at the project root (`src/`)
 
-## Live Demo
+Note: the backend runs on Render's free tier, which spins down after 15 minutes of inactivity. The first request after idle time can take 30–60 seconds to respond — this is expected, not a bug.
 
-*(Add your deployed link here once deployed)*
+## What it does
 
-## Features
+* Sign up and get a unique API key, no password required
+* Send prompts through the gateway instead of calling an LLM provider directly
+* Requests are rate-limited per key using a token bucket (10 requests, refilling over time) — bursts are allowed, sustained abuse is not
+* Each user has a monthly request quota, tracked and enforced independently of the rate limiter
+* Near-duplicate prompts are served from cache instead of hitting the LLM again, saving cost and latency
+* If the primary provider (Groq) fails, the gateway automatically retries with a backup provider (OpenRouter) — the caller never sees the failure
+* A dashboard shows live usage: total requests, tokens, cost, and a full request log
 
-- **API Key Authentication** — every request is authenticated via a unique, per-user API key
-- **Rate Limiting** — token bucket algorithm (Redis-backed) prevents burst abuse, 10 requests/user with gradual refill
-- **Monthly Quotas** — per-user request budgets, independent of rate limiting
-- **Usage Logging & Cost Tracking** — every request logged with token counts and calculated cost
-- **Response Caching** — Jaccard similarity matching skips redundant LLM calls for near-duplicate prompts, reducing cost and latency
-- **Multi-Provider Failover** — automatically falls back from Groq to OpenRouter if the primary provider fails
-- **Dashboard** — React frontend showing live usage stats, API key management, and detailed request logs
+## How it works
 
-## Tech Stack
+1. **Authenticate:** every request carries an `x-api-key` header, checked against a user record in MongoDB.
+2. **Rate limit:** a token bucket stored in Redis tracks each key's remaining requests, refilling gradually so short bursts are fine but sustained hammering gets a `429`.
+3. **Quota check:** a separate, monthly counter in MongoDB blocks requests once a user's request budget for the month is used up — independent of the rate limiter, which resets every few seconds.
+4. **Cache lookup:** the incoming prompt is compared against previously cached prompts using Jaccard similarity (word-overlap based). A close-enough match returns the cached response immediately, skipping the LLM call entirely.
+5. **Provider call:** if nothing's cached, the prompt goes to Groq. If that call fails for any reason, the gateway automatically retries the same prompt against OpenRouter before giving up.
+6. **Log and respond:** the response is logged (tokens used, calculated cost, timestamp), cached for future similar prompts, and returned to the caller.
 
-**Backend:** Node.js, Express, MongoDB (Atlas), Redis (Cloud)
-**Frontend:** React, Vite, Tailwind CSS, React Router
-**LLM Providers:** Groq (primary), OpenRouter (fallback)
+## Tech stack
 
-## Architecture
+* Frontend: React (Vite), Tailwind CSS, deployed on Vercel
+* Backend: Node.js, Express, deployed on Render
+* Database: MongoDB Atlas
+* Rate limiting: Redis Cloud
+* LLM providers: Groq (primary), OpenRouter (fallback)
+* Auth: per-user API keys, no passwords
 
-```
-Client Request
-      │
-      ▼
- Authentication  ──── invalid key ────▶ 401
-      │
-      ▼
- Rate Limiting   ──── bucket empty ───▶ 429
-      │
-      ▼
- Quota Check     ──── quota exceeded ─▶ 429
-      │
-      ▼
- Cache Lookup    ──── match found ────▶ return cached response
-      │
-      ▼
- Groq (primary)  ──── fails ──────────▶ OpenRouter (fallback)
-      │
-      ▼
- Log usage + cost, save to cache, return response
-```
+## Known limitations
 
-## Project Structure
+Being upfront about the current tradeoffs:
 
-```
-llm-gateway/
-├── src/
-│   ├── config/         # MongoDB, Redis connections
-│   ├── controllers/     # request handlers
-│   ├── routes/          # route definitions
-│   ├── services/        # business logic (auth, rate limit, cache, providers)
-│   └── middleware/      # auth, rate limit, quota, error handling
-├── frontend/
-│   └── src/
-│       ├── pages/        # Signup, Dashboard, API Keys, Usage Logs
-│       └── components/   # Sidebar, Layout
-```
+* Caching uses word-overlap similarity (Jaccard), not true semantic embeddings — it catches reworded duplicates well but won't recognize prompts that mean the same thing using completely different words.
+* No key recovery. Since there's no password or email verification, a lost API key can't be reissued — this mirrors how most developer API keys work (shown once at creation), but it's a real constraint worth knowing.
+* No per-key regeneration or revocation yet — a key is permanent once issued.
+* Only two providers are wired up (Groq, OpenRouter). Provider selection is fixed (always try Groq first) rather than based on live cost or latency.
+* No streaming responses — replies return all at once rather than token-by-token.
 
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- A MongoDB Atlas connection string
-- A Redis Cloud connection string
-- A Groq API key ([console.groq.com](https://console.groq.com))
-- An OpenRouter API key ([openrouter.ai](https://openrouter.ai))
-
-### Backend Setup
+## Running locally
 
 ```bash
-git clone https://github.com/Fathima-Nyshu/LLM-gateway.git
+# Backend
 cd LLM-gateway
 npm install
-cp .env.example .env
-# fill in your API keys and connection strings in .env
+# Add a .env file with GROQ_API_KEY, MONGODB_URI, REDIS_URL, OPENROUTER_API_KEY
 npm run dev
-```
 
-### Frontend Setup
-
-```bash
+# Frontend
 cd frontend
 npm install
 npm run dev
 ```
-
-Backend runs on `http://localhost:3000`, frontend on `http://localhost:5173`.
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|--------------|
-| POST | `/v1/signup` | Create a new user, returns an API key |
-| POST | `/v1/chat` | Send a prompt, get an AI response (requires `x-api-key` header) |
-| GET | `/v1/usage` | Get usage summary and logs for the authenticated user |
-
-## Example Request
-
-```bash
-curl -X POST http://localhost:3000/v1/chat \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: sk_your_api_key" \
-  -d '{"prompt": "What is the capital of France?"}'
-```
-
-## Design Decisions
-
-- **Token bucket over fixed window rate limiting** — allows short bursts while still capping average request rate, matching how real APIs like Stripe and GitHub implement rate limits.
-- **Jaccard similarity over embedding-based caching** — chosen for reliability with short prompts and zero external dependency risk, after an initial embedding-model approach introduced unresolved dependency vulnerabilities.
-- **Provider-agnostic service layer** — Groq and OpenRouter integrations share an identical interface, making the fallback logic simple and making it easy to add a third provider later.
-
-## What's Next
-
-- Docker Compose setup for one-command local deployment
-- Load testing with k6 to validate rate limiter behavior under concurrent load
