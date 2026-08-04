@@ -4,6 +4,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const userRoutes = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { connectDB } = require('./config/db');
+const { connectRedis } = require('./config/redis');
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await connectDB();
+    await connectRedis();
     app.listen(PORT, () => {
       console.log(`LLM Gateway running on port ${PORT}`);
     });
