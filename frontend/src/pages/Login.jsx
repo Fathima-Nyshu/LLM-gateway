@@ -11,7 +11,7 @@ function Login() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3000/v1/usage', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usage`, {
         headers: { 'x-api-key': apiKey },
       });
 
