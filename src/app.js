@@ -6,11 +6,13 @@ const errorHandler = require('./middleware/errorHandler');
 const { connectDB } = require('./config/db');
 const { connectRedis } = require('./config/redis');
 const usageRoutes = require('./routes/usageRoutes');
+const cors = require('cors');
 
 
 dotenv.config();
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
