@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 function Signup() {
   const [email, setEmail] = useState('');
@@ -45,24 +45,32 @@ function Signup() {
         <p className="text-text-muted text-sm mb-6">Create an account to get your API key</p>
 
         {!apiKey ? (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="bg-background border border-border rounded px-3 py-2 text-text text-sm focus:outline-none focus:border-primary"
-            />
-            {error && <p className="text-error text-sm">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-primary hover:bg-primary-hover text-background font-semibold rounded px-3 py-2 text-sm transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Creating account...' : 'Sign Up'}
-            </button>
-          </form>
+          <>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-background border border-border rounded px-3 py-2 text-text text-sm focus:outline-none focus:border-primary"
+              />
+              {error && <p className="text-error text-sm">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-primary hover:bg-primary-hover text-background font-semibold rounded px-3 py-2 text-sm transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Creating account...' : 'Sign Up'}
+              </button>
+            </form>
+            <p className="text-text-muted text-xs mt-4">
+              Already have a key?{' '}
+              <Link to="/login" className="text-primary hover:underline">
+                Log in
+              </Link>
+            </p>
+          </>
         ) : (
           <div className="flex flex-col gap-4">
             <p className="text-success text-sm">Account created! Save your API key — it won't be shown again.</p>

@@ -37,7 +37,7 @@ function Dashboard() {
       {error && <p className="text-error text-sm">{error}</p>}
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-surface border border-border rounded-lg p-4">
             <p className="text-text-muted text-xs uppercase mb-1">Total Requests</p>
             <p className="text-text text-2xl font-bold font-mono">{summary.totalRequests}</p>
